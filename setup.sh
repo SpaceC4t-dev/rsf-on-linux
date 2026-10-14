@@ -39,8 +39,9 @@ if [ -z "${RBR_DIR:-}" ]; then
         [ -d "$d/rsf_launcher" ] && RBR_DIR="$d" && break
     done
 fi
-[ -n "${RBR_DIR:-}" ] && [ -d "$RBR_DIR/rsf_launcher" ] ||
+if [ -z "${RBR_DIR:-}" ] || [ ! -d "$RBR_DIR/rsf_launcher" ]; then
     die "RSF launcher not found. Pass the game folder: RBR_DIR=\"/path/to/Richard Burns Rally\""
+fi
 mkdir -p "${CONFIG%/*}"
 # run.sh and kill.sh read these, so the menu entry uses the same game, prefix and Wine
 printf 'RBR_DIR=%q\nWINEPREFIX=%q\nGE_DIR=%q\n' "$RBR_DIR" "$WINEPREFIX" "$GE_DIR" > "$CONFIG"
