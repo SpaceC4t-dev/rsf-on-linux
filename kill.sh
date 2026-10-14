@@ -7,15 +7,20 @@ r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
 export WINEPREFIX="${p:-${WINEPREFIX:-$HOME/.wine-rbr-ge}}"
 GE_DIR="${g:-${GE_DIR:-$HOME/.local/share/proton-ge/GE-Proton11-9-x86_64}}"
 
+# Check every thread: a half-dead process (zombie leader + hung threads) has
+# no readable environ on the leader, but its live threads still show it
 in_prefix() {
-    [ -r "/proc/$1/environ" ] || return 1
-    { tr '\0' '\n' < "/proc/$1/environ" | grep -qx "WINEPREFIX=$WINEPREFIX"; } 2>/dev/null
+    local t
+    for t in "/proc/$1/task/"*; do
+        { tr '\0' '\n' < "$t/environ" | grep -Fqx "WINEPREFIX=$WINEPREFIX"; } 2>/dev/null && return 0
+    done
+    return 1
 }
 
 list() {
     for d in /proc/[0-9]*; do
         pid=${d#/proc/}
-        [ "$pid" != "$$" ] && in_prefix "$pid" && echo "$pid"
+        [ "$pid" != "$$" ] && [ "$pid" != "$BASHPID" ] && in_prefix "$pid" && echo "$pid"
     done
 }
 
@@ -25,11 +30,6 @@ sleep 1
 
 # Force-kill orphans (wineserver may already be gone); only this prefix
 for pid in $(list); do kill -9 "$pid" 2>/dev/null; done
-# Half-dead processes (zombie leader + hung threads) have no readable
-# environ, so match them by name instead
-for pid in $(pgrep -u "$USER" -x 'richardburnsral|RSF_Launcher.ex|explorer.exe|winedevice.exe|svchost.exe|services.exe|plugplay.exe|rpcss.exe'); do
-    kill -9 "$pid" 2>/dev/null
-done
 sleep 1
 
 echo "Remaining processes in $WINEPREFIX:"
