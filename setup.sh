@@ -6,10 +6,16 @@
 #   GE_VERSION, GE_DIR, WINEPREFIX, RBR_DIR, INSTALL_DIR
 set -euo pipefail
 
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
+# Settings from a previous run (game folder, prefix); the environment wins.
+# The saved GE_DIR is not reused, so a re-run picks up a new default GE_VERSION.
+r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
+[ -f "$CONFIG" ] && . "$CONFIG"
+RBR_DIR="${r:-${RBR_DIR:-}}" WINEPREFIX="${p:-${WINEPREFIX:-}}" GE_DIR="$g"
+
 GE_VERSION="${GE_VERSION:-GE-Proton11-9}"
 GE_ROOT="${GE_ROOT:-$HOME/.local/share/proton-ge}"
 GE_DIR="${GE_DIR:-$GE_ROOT/$GE_VERSION-x86_64}"
-CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
 export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-rbr-ge}"
 # The distro winetricks (20260125) has no dotnetdesktop10 verb; use upstream at a pinned commit.
 WINETRICKS_COMMIT="f3890f670867b5ffbc3938726db45c0f7d16c8ba"
@@ -25,7 +31,6 @@ for cmd in curl sha512sum tar cabextract; do
     command -v "$cmd" >/dev/null || die "missing dependency: $cmd"
 done
 # Game folder: $RBR_DIR, else the saved one, else a few common locations
-[ -z "${RBR_DIR:-}" ] && [ -f "$CONFIG" ] && . "$CONFIG"
 if [ -z "${RBR_DIR:-}" ]; then
     for d in "$HOME/Games/Richard Burns Rally" "$HOME/Games/richard-burns-rally/drive_c/Richard Burns Rally" \
              "$HOME/.local/share/Steam/steamapps/common/Richard Burns Rally" \
@@ -36,11 +41,16 @@ fi
 [ -n "${RBR_DIR:-}" ] && [ -d "$RBR_DIR/rsf_launcher" ] ||
     die "RSF launcher not found. Pass the game folder: RBR_DIR=\"/path/to/Richard Burns Rally\""
 mkdir -p "${CONFIG%/*}"
-printf 'RBR_DIR=%q\n' "$RBR_DIR" > "$CONFIG"
+# run.sh and kill.sh read these, so the menu entry uses the same game, prefix and Wine
+printf 'RBR_DIR=%q\nWINEPREFIX=%q\nGE_DIR=%q\n' "$RBR_DIR" "$WINEPREFIX" "$GE_DIR" > "$CONFIG"
 
-# 0. run.sh / kill.sh: use the ones next to this script (git clone), else download them
-SELF="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
-if [ -n "$SELF" ] && [ -f "$SELF/run.sh" ] && [ -f "$SELF/kill.sh" ]; then
+# 0. run.sh / kill.sh: use the ones next to this script (git clone), else download them.
+# Piped into bash there is no script file, so never look in the current directory.
+SELF=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+if [ -z "${INSTALL_DIR:-}" ] && [ -n "$SELF" ] && [ -f "$SELF/run.sh" ] && [ -f "$SELF/kill.sh" ]; then
     INSTALL_DIR="$SELF"
 else
     INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/rsf-on-linux}"

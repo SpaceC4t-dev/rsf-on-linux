@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Launch the RallySimFans launcher under Proton-GE's Wine (log: ./rbr.log)
 # System wine 11.19 (dev) has a wineserver crash at exit; GE-Proton11-9 fixes it.
-# Override any of these from the environment.
-# Game folder: $RBR_DIR, else the path saved by setup.sh
-[ -z "${RBR_DIR:-}" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config" 2>/dev/null
+# Settings saved by setup.sh; the environment wins
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
+r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
+[ -f "$cfg" ] && . "$cfg"
+RBR_DIR="${r:-${RBR_DIR:-}}"
+export WINEPREFIX="${p:-${WINEPREFIX:-$HOME/.wine-rbr-ge}}"
+GE_DIR="${g:-${GE_DIR:-$HOME/.local/share/proton-ge/GE-Proton11-9-x86_64}}"
 [ -d "${RBR_DIR:-}/rsf_launcher" ] || { echo "RBR_DIR not set or invalid; run setup.sh or set RBR_DIR" >&2; exit 1; }
-G="${GE_DIR:-$HOME/.local/share/proton-ge/GE-Proton11-9-x86_64}/files"
-export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-rbr-ge}"
+G="$GE_DIR/files"
 export PATH="$G/bin:$PATH"
 export WINEDLLPATH="$G/lib/wine"
 export LD_LIBRARY_PATH="$G/lib:$G/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"

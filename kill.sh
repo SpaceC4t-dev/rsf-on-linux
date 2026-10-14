@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Kill everything running in the RBR Wine prefix
-export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-rbr-ge}"
+# Settings saved by setup.sh; the environment wins
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
+r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
+[ -f "$cfg" ] && . "$cfg"
+export WINEPREFIX="${p:-${WINEPREFIX:-$HOME/.wine-rbr-ge}}"
+GE_DIR="${g:-${GE_DIR:-$HOME/.local/share/proton-ge/GE-Proton11-9-x86_64}}"
 
 in_prefix() {
     [ -r "/proc/$1/environ" ] || return 1
@@ -14,7 +19,8 @@ list() {
     done
 }
 
-wineserver -k 2>/dev/null
+# Proton-GE's wineserver: the system one is a different version and can't stop it
+"$GE_DIR/files/bin/wineserver" -k 2>/dev/null
 sleep 1
 
 # Force-kill orphans (wineserver may already be gone); only this prefix

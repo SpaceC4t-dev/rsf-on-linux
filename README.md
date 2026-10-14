@@ -18,7 +18,7 @@ Then start **RSF Launcher** from your application menu, or run `~/.local/share/r
 
 ## Options
 
-Environment variables for `setup.sh` (and `run.sh`): `RBR_DIR` (game folder; remembered in `~/.config/rsf-on-linux/config` after setup), `WINEPREFIX` (default `~/.wine-rbr-ge`), `GE_DIR` (Proton-GE location), `INSTALL_DIR` (where the scripts go).
+Environment variables for `setup.sh`: `RBR_DIR` (game folder), `WINEPREFIX` (default `~/.wine-rbr-ge`), `GE_VERSION` / `GE_DIR` (Proton-GE version or location), `INSTALL_DIR` (where the scripts go). Setup saves the game folder, prefix and Proton-GE location to `~/.config/rsf-on-linux/config`, which `run.sh` and `kill.sh` read; setting a variable in the environment overrides the saved value.
 
 ## Known issues and fixes
 
