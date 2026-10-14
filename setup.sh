@@ -9,7 +9,7 @@ set -euo pipefail
 GE_VERSION="${GE_VERSION:-GE-Proton11-9}"
 GE_ROOT="${GE_ROOT:-$HOME/.local/share/proton-ge}"
 GE_DIR="${GE_DIR:-$GE_ROOT/$GE_VERSION-x86_64}"
-RBR_DIR="${RBR_DIR:-/mnt/storage-1tb/Richard Burns Rally}"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
 export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-rbr-ge}"
 # The distro winetricks (20260125) has no dotnetdesktop10 verb; use upstream at a pinned commit.
 WINETRICKS_COMMIT="f3890f670867b5ffbc3938726db45c0f7d16c8ba"
@@ -24,7 +24,19 @@ die() { echo "error: $*" >&2; exit 1; }
 for cmd in curl sha512sum tar cabextract; do
     command -v "$cmd" >/dev/null || die "missing dependency: $cmd"
 done
-[ -d "$RBR_DIR/rsf_launcher" ] || die "RSF launcher not found in '$RBR_DIR/rsf_launcher' (set RBR_DIR)"
+# Game folder: $RBR_DIR, else the saved one, else a few common locations
+[ -z "${RBR_DIR:-}" ] && [ -f "$CONFIG" ] && . "$CONFIG"
+if [ -z "${RBR_DIR:-}" ]; then
+    for d in "$HOME/Games/Richard Burns Rally" "$HOME/Games/richard-burns-rally/drive_c/Richard Burns Rally" \
+             "$HOME/.local/share/Steam/steamapps/common/Richard Burns Rally" \
+             "$HOME/.steam/steam/steamapps/common/Richard Burns Rally"; do
+        [ -d "$d/rsf_launcher" ] && RBR_DIR="$d" && break
+    done
+fi
+[ -n "${RBR_DIR:-}" ] && [ -d "$RBR_DIR/rsf_launcher" ] ||
+    die "RSF launcher not found. Pass the game folder: RBR_DIR=\"/path/to/Richard Burns Rally\""
+mkdir -p "${CONFIG%/*}"
+printf 'RBR_DIR=%q\n' "$RBR_DIR" > "$CONFIG"
 
 # 0. run.sh / kill.sh: use the ones next to this script (git clone), else download them
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"

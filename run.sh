@@ -2,7 +2,9 @@
 # Launch the RallySimFans launcher under Proton-GE's Wine (log: ./rbr.log)
 # System wine 11.19 (dev) has a wineserver crash at exit; GE-Proton11-9 fixes it.
 # Override any of these from the environment.
-RBR_DIR="${RBR_DIR:-/mnt/storage-1tb/Richard Burns Rally}"
+# Game folder: $RBR_DIR, else the path saved by setup.sh
+[ -z "${RBR_DIR:-}" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config" 2>/dev/null
+[ -d "${RBR_DIR:-}/rsf_launcher" ] || { echo "RBR_DIR not set or invalid; run setup.sh or set RBR_DIR" >&2; exit 1; }
 G="${GE_DIR:-$HOME/.local/share/proton-ge/GE-Proton11-9-x86_64}/files"
 export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-rbr-ge}"
 export PATH="$G/bin:$PATH"

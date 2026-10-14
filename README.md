@@ -8,7 +8,7 @@ Run the [RallySimFans](https://rallysimfans.hu) launcher for Richard Burns Rally
 curl -fsSL https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main/setup.sh | bash
 ```
 
-Requires `curl`, `cabextract`, `sha512sum`, `tar`, and RBR with the RSF launcher already installed. By default it looks in `/mnt/storage-1tb/Richard Burns Rally`; for any other location:
+Requires `curl`, `cabextract`, `sha512sum`, `tar`, and RBR with the RSF launcher already installed. It finds the game in the usual places (`~/Games`, Steam); if it can't, or to pick one yourself:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main/setup.sh | RBR_DIR="/path/to/Richard Burns Rally" bash
@@ -18,7 +18,7 @@ Then start **RSF Launcher** from your application menu, or run `~/.local/share/r
 
 ## Options
 
-Environment variables for `setup.sh` (and `run.sh`): `RBR_DIR` (game folder), `WINEPREFIX` (default `~/.wine-rbr-ge`), `GE_DIR` (Proton-GE location), `INSTALL_DIR` (where the scripts go).
+Environment variables for `setup.sh` (and `run.sh`): `RBR_DIR` (game folder; remembered in `~/.config/rsf-on-linux/config` after setup), `WINEPREFIX` (default `~/.wine-rbr-ge`), `GE_DIR` (Proton-GE location), `INSTALL_DIR` (where the scripts go).
 
 ## Known issues and fixes
 
