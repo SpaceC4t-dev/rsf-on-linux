@@ -13,6 +13,18 @@ Host: openSUSE-style system, kernel 7.2.9, Wayland, AMD RX 6800-class GPU.
 | Start | `./run.sh` (log in `rbr.log`) |
 | Clean up | `./kill.sh` |
 
+## Setup from scratch
+
+One-liner, no clone needed (installs `run.sh`/`kill.sh` to `~/.local/share/rsf-on-linux` and adds a menu entry):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main/setup.sh | bash
+```
+
+Or from a clone: `./setup.sh`, then `./run.sh`. Needs `curl`, `cabextract`, `sha512sum`, `tar`; `magick` is optional (menu icon).
+
+`setup.sh` downloads Proton-GE (SHA-512 verified), fetches upstream winetricks at a pinned commit, creates the prefix, installs the runtimes listed above and applies the rendering tweaks from issue 6. It skips finished steps, so it is safe to re-run. It expects the RSF launcher already installed in `RBR_DIR`.
+
 Paths are overridable: `RBR_DIR` (game folder), `GE_DIR` (Proton-GE), `WINEPREFIX`.
 
 `run.sh` sets: GE `PATH`/`WINEDLLPATH`/`LD_LIBRARY_PATH`, `DOTNET_SYSTEM_GLOBALIZATION_USENLS=1`, and the DLL overrides below.
