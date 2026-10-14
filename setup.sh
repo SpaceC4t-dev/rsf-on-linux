@@ -10,6 +10,7 @@ CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
 # Settings from a previous run (game folder, prefix); the environment wins.
 # The saved GE_DIR is not reused, so a re-run picks up a new default GE_VERSION.
 r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
+# shellcheck source=/dev/null
 [ -f "$CONFIG" ] && . "$CONFIG"
 RBR_DIR="${r:-${RBR_DIR:-}}" WINEPREFIX="${p:-${WINEPREFIX:-}}" GE_DIR="$g"
 
@@ -75,6 +76,7 @@ else
     tar -xzf "$dl/$name.tar.gz" -C "$GE_ROOT"
     [ -x "$GE_DIR/files/bin/wine" ] || die "extracted archive has no $GE_DIR/files/bin/wine"
 fi
+rm -rf "$GE_ROOT/dl"  # the ~500 MB tarball isn't needed once extracted
 
 G="$GE_DIR/files"
 export PATH="$G/bin:$PATH" WINEDLLPATH="$G/lib/wine"
@@ -119,18 +121,31 @@ icon=applications-games
 ico="$RBR_DIR/rallysimfans.ico"
 icon_png="$HOME/.local/share/icons/hicolor/256x256/apps/rsf-launcher.png"
 if [ -f "$ico" ] && command -v magick >/dev/null; then
+    # Optional: on failure keep the generic icon rather than abort the setup
     mkdir -p "${icon_png%/*}"
-    best=$(magick identify -format '%[fx:w*h] %p\n' "$ico" | sort -nr | head -1 | cut -d' ' -f2)
-    magick "$ico[$best]" -resize 256x256 "$icon_png" && icon=rsf-launcher
+    if best=$(magick identify -format '%[fx:w*h] %p\n' "$ico" | sort -nr | head -1 | cut -d' ' -f2) &&
+       [ -n "$best" ] && magick "${ico}[$best]" -resize 256x256 "$icon_png"; then
+        icon=rsf-launcher
+    else
+        echo "warning: couldn't convert $ico, using a generic icon" >&2
+    fi
 fi
+# Desktop entry escaping: inside a quoted Exec argument " ` $ \ need a backslash,
+# then every backslash is doubled (string escaping), and % becomes %%
+exec_arg() {
+    local s=$1
+    s=${s//\\/\\\\}; s=${s//\"/\\\"}; s=${s//\`/\\\`}; s=${s//\$/\\\$}
+    s=${s//\\/\\\\}; s=${s//%/%%}
+    printf '"%s"' "$s"
+}
 mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/rsf-launcher.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=RSF Launcher
 Comment=RallySimFans launcher for Richard Burns Rally
-Exec="$INSTALL_DIR/run.sh"
-Path=$INSTALL_DIR
+Exec=$(exec_arg "$INSTALL_DIR/run.sh")
+Path=${INSTALL_DIR//\\/\\\\}
 Icon=$icon
 Terminal=false
 Categories=Game;

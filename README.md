@@ -8,7 +8,7 @@ Run the [RallySimFans](https://rallysimfans.hu) launcher for Richard Burns Rally
 curl -fsSL https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main/setup.sh | bash
 ```
 
-Requires `curl`, `cabextract`, `sha512sum`, `tar`, and RBR with the RSF launcher already installed. It finds the game in the usual places (`~/Games`, Steam); if it can't, or to pick one yourself:
+Requires `curl`, `cabextract`, `sha512sum`, `tar` (optionally ImageMagick's `magick`, for the menu icon), and RBR with the RSF launcher already installed. It finds the game in the usual places (`~/Games`, Steam); if it can't, or to pick one yourself:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main/setup.sh | RBR_DIR="/path/to/Richard Burns Rally" bash

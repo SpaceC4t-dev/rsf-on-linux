@@ -4,6 +4,7 @@
 # Settings saved by setup.sh; the environment wins
 cfg="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
 r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
+# shellcheck source=/dev/null
 [ -f "$cfg" ] && . "$cfg"
 RBR_DIR="${r:-${RBR_DIR:-}}"
 export WINEPREFIX="${p:-${WINEPREFIX:-$HOME/.wine-rbr-ge}}"
@@ -22,6 +23,8 @@ LOG="$(cd "$(dirname "$0")" && pwd)/rbr.log"
 
 cd "$RBR_DIR/rsf_launcher" || exit 1
 wine RSF_Launcher.exe "$@" 2>&1 | grep --line-buffered -v fixme > "$LOG"
+status=${PIPESTATUS[0]}
 
 # Clean up anything Wine left behind
 wineserver -k 2>/dev/null
+exit "$status"

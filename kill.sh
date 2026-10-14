@@ -2,16 +2,24 @@
 # Kill everything running in the RBR Wine prefix
 # Settings saved by setup.sh; the environment wins
 cfg="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
-r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
+p="${WINEPREFIX:-}" g="${GE_DIR:-}"
+# shellcheck source=/dev/null
 [ -f "$cfg" ] && . "$cfg"
 export WINEPREFIX="${p:-${WINEPREFIX:-$HOME/.wine-rbr-ge}}"
 GE_DIR="${g:-${GE_DIR:-$HOME/.local/share/proton-ge/GE-Proton11-9-x86_64}}"
 
+# A Wine process whose environment names this prefix. Requiring a Wine binary
+# keeps a session-wide WINEPREFIX from matching the terminal or desktop.
 # Check every thread: a half-dead process (zombie leader + hung threads) has
-# no readable environ on the leader, but its live threads still show it
+# no readable environ or exe on the leader, but its live threads still show them
 in_prefix() {
-    local t
+    local t exe
     for t in "/proc/$1/task/"*; do
+        exe=$(readlink "$t/exe" 2>/dev/null)
+        case "${exe% (deleted)}" in
+            */wine|*/wine64|*/wine-preloader|*/wine64-preloader|*/wineserver) ;;
+            *) continue ;;
+        esac
         { tr '\0' '\n' < "$t/environ" | grep -Fqx "WINEPREFIX=$WINEPREFIX"; } 2>/dev/null && return 0
     done
     return 1
@@ -19,8 +27,7 @@ in_prefix() {
 
 list() {
     for d in /proc/[0-9]*; do
-        pid=${d#/proc/}
-        [ "$pid" != "$$" ] && [ "$pid" != "$BASHPID" ] && in_prefix "$pid" && echo "$pid"
+        in_prefix "${d#/proc/}" && echo "${d#/proc/}"
     done
 }
 
@@ -35,8 +42,7 @@ sleep 1
 echo "Remaining processes in $WINEPREFIX:"
 left=$(list)
 if [ -n "$left" ]; then
-    # shellcheck disable=SC2086
-    ps -o pid,stat,cmd -p $(echo $left | tr ' ' ',') | cut -c1-100
+    ps -o pid,stat,cmd -p "$(paste -sd, <<< "$left")" | cut -c1-100
 else
     echo "  none"
 fi
