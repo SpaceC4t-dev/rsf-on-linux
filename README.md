@@ -14,11 +14,28 @@ Requires `curl`, `cabextract`, `sha512sum`, `tar` (optionally ImageMagick's `mag
 curl -fsSL https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main/setup.sh | RBR_DIR="/path/to/Richard Burns Rally" bash
 ```
 
-Then start **RSF Launcher** from your application menu, or run `~/.local/share/rsf-on-linux/run.sh`. If anything gets stuck, `kill.sh` in the same folder stops everything running in the prefix.
+Setup downloads this repo to `~/.local/share/rsf-on-linux` and runs from there. Then start **RSF Launcher** from your application menu, or run `~/.local/share/rsf-on-linux/run.sh`. If anything gets stuck, `kill.sh` in the same folder stops everything running in the prefix.
 
 ## Options
 
-Environment variables for `setup.sh`: `RBR_DIR` (game folder), `WINEPREFIX` (default `~/.wine-rbr-ge`), `GE_VERSION` / `GE_DIR` (Proton-GE version or location), `INSTALL_DIR` (where the scripts go). Setup saves the game folder, prefix and Proton-GE location to `~/.config/rsf-on-linux/config`, which `run.sh` and `kill.sh` read; setting a variable in the environment overrides the saved value.
+Environment variables for `setup.sh`:
+
+- `RBR_DIR`: the game folder.
+- `RSF_WINEPREFIX`: the Wine prefix (default `~/.wine-rbr-ge`). A `WINEPREFIX` set in your environment is ignored, so a session-wide one can't send the runtimes into another prefix.
+- `GE_VERSION`: the Proton-GE release to install (default in `common.sh`). `GE_DIR`: where it goes, or an existing Proton-GE folder to use.
+- `INSTALL_DIR`: where the scripts go.
+
+Setup saves the game folder, prefix and Proton-GE folder to `~/.config/rsf-on-linux/config`, and `run.sh` and `kill.sh` read it. A variable set in the environment overrides the saved value. The exception is Proton-GE: re-running setup installs the current default (or `GE_VERSION`) unless you pass `GE_DIR`, so updating this repo also updates Wine.
+
+## Uninstall
+
+```bash
+~/.local/share/rsf-on-linux/kill.sh
+rm -rf ~/.wine-rbr-ge ~/.local/share/proton-ge ~/.local/share/rsf-on-linux ~/.config/rsf-on-linux \
+    ~/.local/share/applications/rsf-launcher.desktop ~/.local/share/icons/hicolor/256x256/apps/rsf-launcher.png
+```
+
+Adjust the paths if you changed `RSF_WINEPREFIX`, `GE_DIR` or `INSTALL_DIR`. The game folder is not touched.
 
 ## Known issues and fixes
 

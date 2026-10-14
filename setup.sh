@@ -3,34 +3,59 @@
 # run/kill scripts and a menu entry. Safe to re-run: finished steps are skipped.
 #   curl -fsSL https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main/setup.sh | bash
 # Overridable from the environment:
-#   GE_VERSION, GE_DIR, WINEPREFIX, RBR_DIR, INSTALL_DIR
+#   RBR_DIR, RSF_WINEPREFIX, GE_VERSION, GE_DIR, INSTALL_DIR
 set -euo pipefail
 
-CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
-# Settings from a previous run (game folder, prefix); the environment wins.
-# The saved GE_DIR is not reused, so a re-run picks up a new default GE_VERSION.
-r="${RBR_DIR:-}" p="${WINEPREFIX:-}" g="${GE_DIR:-}"
-# shellcheck source=/dev/null
-[ -f "$CONFIG" ] && . "$CONFIG"
-RBR_DIR="${r:-${RBR_DIR:-}}" WINEPREFIX="${p:-${WINEPREFIX:-}}" GE_DIR="$g"
-
-GE_VERSION="${GE_VERSION:-GE-Proton11-9}"
-GE_ROOT="${GE_ROOT:-$HOME/.local/share/proton-ge}"
-GE_DIR="${GE_DIR:-$GE_ROOT/$GE_VERSION-x86_64}"
-export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-rbr-ge}"
+TARBALL_URL="https://github.com/SpaceC4t-dev/rsf-on-linux/archive/refs/heads/main.tar.gz"
 # The distro winetricks (20260125) has no dotnetdesktop10 verb; use upstream at a pinned commit.
 WINETRICKS_COMMIT="f3890f670867b5ffbc3938726db45c0f7d16c8ba"
 WINETRICKS_URL="https://raw.githubusercontent.com/Winetricks/winetricks/$WINETRICKS_COMMIT/src/winetricks"
-GE_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/$GE_VERSION"
-RAW_URL="https://raw.githubusercontent.com/SpaceC4t-dev/rsf-on-linux/main"
 VERBS=(corefonts tahoma vcrun2022 d3dx9 dxvk dotnetdesktop10)
 
 say() { printf '\n==> %s\n' "$*"; }
 die() { echo "error: $*" >&2; exit 1; }
+abspath() { case "$1" in /*) printf '%s' "${1%/}" ;; *) printf '%s/%s' "$PWD" "${1%/}" ;; esac; }
 
 for cmd in curl sha512sum tar cabextract; do
     command -v "$cmd" >/dev/null || die "missing dependency: $cmd"
 done
+
+# 0. Run from a full copy of the repo, so setup.sh and the scripts it installs
+# always come from the same commit. Piped into bash (or a lone setup.sh), fetch
+# main as one tarball into INSTALL_DIR and re-run setup.sh from there.
+SELF=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+fi
+if [ -z "$SELF" ] || [ ! -f "$SELF/common.sh" ]; then
+    [ -z "${RSF_BOOTSTRAPPED:-}" ] || die "downloaded copy has no common.sh"
+    INSTALL_DIR="$(abspath "${INSTALL_DIR:-$HOME/.local/share/rsf-on-linux}")"
+    say "Downloading rsf-on-linux to $INSTALL_DIR"
+    mkdir -p "$INSTALL_DIR"
+    curl -fsSL "$TARBALL_URL" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
+    export RSF_BOOTSTRAPPED=1 INSTALL_DIR
+    exec bash "$INSTALL_DIR/setup.sh"
+fi
+INSTALL_DIR="${INSTALL_DIR:-$SELF}"
+mkdir -p "$INSTALL_DIR"
+INSTALL_DIR="$(cd "$INSTALL_DIR" && pwd -P)"
+if [ "$INSTALL_DIR" != "$SELF" ]; then
+    say "Copying run.sh, kill.sh and common.sh to $INSTALL_DIR"
+    cp "$SELF/run.sh" "$SELF/kill.sh" "$SELF/common.sh" "$INSTALL_DIR/"
+fi
+
+# Settings (see common.sh). Proton-GE is the exception: a re-run installs
+# GE_VERSION (default: the current one) unless GE_DIR is given, so updating
+# this repo also updates Wine.
+user_ge_dir="${GE_DIR:-}"
+# shellcheck source=common.sh
+. "$SELF/common.sh"
+rsf_load_config
+GE_VERSION="${GE_VERSION:-$RSF_GE_VERSION}"
+GE_DIR="$(abspath "${user_ge_dir:-$RSF_GE_ROOT/$GE_VERSION-x86_64}")"
+RSF_WINEPREFIX="$(abspath "$RSF_WINEPREFIX")"
+export WINEPREFIX="$RSF_WINEPREFIX"
+
 # Game folder: $RBR_DIR, else the saved one, else a few common locations
 if [ -z "${RBR_DIR:-}" ]; then
     for d in "$HOME/Games/Richard Burns Rally" "$HOME/Games/richard-burns-rally/drive_c/Richard Burns Rally" \
@@ -42,42 +67,38 @@ fi
 if [ -z "${RBR_DIR:-}" ] || [ ! -d "$RBR_DIR/rsf_launcher" ]; then
     die "RSF launcher not found. Pass the game folder: RBR_DIR=\"/path/to/Richard Burns Rally\""
 fi
-mkdir -p "${CONFIG%/*}"
+RBR_DIR="$(abspath "$RBR_DIR")"
+mkdir -p "${RSF_CONFIG%/*}"
 # run.sh and kill.sh read these, so the menu entry uses the same game, prefix and Wine
-printf 'RBR_DIR=%q\nWINEPREFIX=%q\nGE_DIR=%q\n' "$RBR_DIR" "$WINEPREFIX" "$GE_DIR" > "$CONFIG"
+printf 'RBR_DIR=%q\nRSF_WINEPREFIX=%q\nGE_DIR=%q\n' "$RBR_DIR" "$RSF_WINEPREFIX" "$GE_DIR" > "$RSF_CONFIG"
 
-# 0. run.sh / kill.sh: use the ones next to this script (git clone), else download them.
-# Piped into bash there is no script file, so never look in the current directory.
-SELF=""
-if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
-    SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-fi
-if [ -z "${INSTALL_DIR:-}" ] && [ -n "$SELF" ] && [ -f "$SELF/run.sh" ] && [ -f "$SELF/kill.sh" ]; then
-    INSTALL_DIR="$SELF"
-else
-    INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/rsf-on-linux}"
-    say "Installing run.sh and kill.sh to $INSTALL_DIR"
-    mkdir -p "$INSTALL_DIR"
-    for f in run.sh kill.sh; do
-        curl -fsSL -o "$INSTALL_DIR/$f" "$RAW_URL/$f"
-        chmod +x "$INSTALL_DIR/$f"
-    done
-fi
-
-# 1. Proton-GE (Wine 11.0 Staging), checksum-verified
+# 1. Proton-GE (Wine 11.0 Staging), checksum-verified. Extracted next to GE_DIR
+# and renamed into place, so an interrupted run can't leave a half-extracted
+# Wine that looks installed.
 if [ -x "$GE_DIR/files/bin/wine" ]; then
     say "Proton-GE already installed: $GE_DIR"
 else
+    [ ! -e "$GE_DIR" ] || die "$GE_DIR exists but has no files/bin/wine; remove it or set GE_DIR elsewhere"
     say "Downloading $GE_VERSION"
-    dl="$GE_ROOT/dl"; mkdir -p "$dl"
+    mkdir -p "${GE_DIR%/*}"
+    tmp=$(mktemp -d "${GE_DIR%/*}/.rsf-download.XXXXXX")
+    trap 'rm -rf "$tmp"' EXIT
     name="$GE_VERSION-x86_64"
-    curl -fL -o "$dl/$name.tar.gz" "$GE_URL/$name.tar.gz"
-    curl -fL -o "$dl/$name.sha512sum" "$GE_URL/$name.sha512sum"
-    (cd "$dl" && sha512sum -c "$name.sha512sum") || die "checksum mismatch, not extracting"
-    tar -xzf "$dl/$name.tar.gz" -C "$GE_ROOT"
-    [ -x "$GE_DIR/files/bin/wine" ] || die "extracted archive has no $GE_DIR/files/bin/wine"
+    ge_url="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/$GE_VERSION"
+    curl -fL -o "$tmp/$name.tar.gz" "$ge_url/$name.tar.gz"
+    curl -fL -o "$tmp/$name.sha512sum" "$ge_url/$name.sha512sum"
+    (cd "$tmp" && sha512sum -c "$name.sha512sum") || die "checksum mismatch, not extracting"
+    mkdir "$tmp/x"
+    tar -xzf "$tmp/$name.tar.gz" -C "$tmp/x"
+    top=("$tmp/x"/*)
+    if [ ${#top[@]} -ne 1 ] || [ ! -x "${top[0]}/files/bin/wine" ]; then
+        die "unexpected archive layout: no <folder>/files/bin/wine"
+    fi
+    mv "${top[0]}" "$GE_DIR"
+    rm -rf "$tmp"
+    trap - EXIT
 fi
-rm -rf "$GE_ROOT/dl"  # the ~500 MB tarball isn't needed once extracted
+rm -rf "$RSF_GE_ROOT/dl"  # tarball left behind by older versions of this script
 
 G="$GE_DIR/files"
 export PATH="$G/bin:$PATH" WINEDLLPATH="$G/lib/wine"
@@ -85,9 +106,10 @@ export LD_LIBRARY_PATH="$G/lib:$G/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export WINEDEBUG=-all
 
 # 2. Upstream winetricks
-WT="$GE_ROOT/winetricks-${WINETRICKS_COMMIT:0:8}"
+WT="$RSF_GE_ROOT/winetricks-${WINETRICKS_COMMIT:0:8}"
 if [ ! -x "$WT" ]; then
     say "Fetching winetricks @ ${WINETRICKS_COMMIT:0:8}"
+    mkdir -p "$RSF_GE_ROOT"
     curl -fL -o "$WT" "$WINETRICKS_URL"
     chmod +x "$WT"
 fi

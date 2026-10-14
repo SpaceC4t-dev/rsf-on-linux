@@ -1,34 +1,36 @@
 #!/usr/bin/env bash
 # Kill everything running in the RBR Wine prefix
-# Settings saved by setup.sh; the environment wins
-cfg="${XDG_CONFIG_HOME:-$HOME/.config}/rsf-on-linux/config"
-p="${WINEPREFIX:-}" g="${GE_DIR:-}"
-# shellcheck source=/dev/null
-[ -f "$cfg" ] && . "$cfg"
-export WINEPREFIX="${p:-${WINEPREFIX:-$HOME/.wine-rbr-ge}}"
-GE_DIR="${g:-${GE_DIR:-$HOME/.local/share/proton-ge/GE-Proton11-9-x86_64}}"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=common.sh
+. "$DIR/common.sh"
+rsf_load_config
+export WINEPREFIX="$RSF_WINEPREFIX"
 
-# A Wine process whose environment names this prefix. Requiring a Wine binary
+# Wine processes whose environment names this prefix. Requiring a Wine binary
 # keeps a session-wide WINEPREFIX from matching the terminal or desktop.
-# Check every thread: a half-dead process (zombie leader + hung threads) has
-# no readable environ or exe on the leader, but its live threads still show them
-in_prefix() {
-    local t exe
-    for t in "/proc/$1/task/"*; do
-        exe=$(readlink "$t/exe" 2>/dev/null)
-        case "${exe% (deleted)}" in
-            */wine|*/wine64|*/wine-preloader|*/wine64-preloader|*/wineserver) ;;
-            *) continue ;;
-        esac
-        { tr '\0' '\n' < "$t/environ" | grep -Fqx "WINEPREFIX=$WINEPREFIX"; } 2>/dev/null && return 0
+# Work per thread: a half-dead process (zombie leader + hung threads) has no
+# readable exe or environ on the leader, but its live threads still show them.
+# One find call picks the Wine threads; a readlink per thread takes seconds.
+wine_threads() {
+    local names=() n
+    for n in wine wine64 wine-preloader wine64-preloader wineserver; do
+        names+=(-o -lname "*/$n" -o -lname "*/$n (deleted)")
     done
-    return 1
+    find /proc/[0-9]*/task/*/exe -maxdepth 0 \( "${names[@]:1}" \) 2>/dev/null
 }
 
 list() {
-    for d in /proc/[0-9]*; do
-        in_prefix "${d#/proc/}" && echo "${d#/proc/}"
-    done
+    local pid tid seen=" " vars v
+    while IFS=/ read -r _ _ pid _ tid _; do
+        case "$seen" in *" $pid "*) continue ;; esac
+        # The leader of a half-dead process can't be read; try its other threads
+        mapfile -d '' -t vars < "/proc/$pid/task/$tid/environ" 2>/dev/null || continue
+        [ ${#vars[@]} -gt 0 ] || continue
+        seen+="$pid "
+        for v in "${vars[@]}"; do
+            if [ "$v" = "WINEPREFIX=$WINEPREFIX" ]; then echo "$pid"; break; fi
+        done
+    done < <(wine_threads)
 }
 
 # Proton-GE's wineserver: the system one is a different version and can't stop it
