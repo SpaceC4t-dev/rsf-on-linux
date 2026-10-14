@@ -5,7 +5,24 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=common.sh
 . "$DIR/common.sh"
 rsf_load_config
-[ -d "${RBR_DIR:-}/rsf_launcher" ] || { echo "RBR_DIR not set or invalid; run setup.sh or set RBR_DIR" >&2; exit 1; }
+
+# Print the error; from the menu there's no terminal, so also show it in a dialog
+fail() {
+    echo "$1" >&2
+    if [ ! -t 2 ]; then
+        zenity --error --no-markup --title="RSF Launcher" --text="$1" 2>/dev/null ||
+        kdialog --title "RSF Launcher" --error "$1" 2>/dev/null ||
+        notify-send -u critical "RSF Launcher" "$1" 2>/dev/null
+    fi
+    exit 1
+}
+
+if [ -z "${RBR_DIR:-}" ]; then
+    fail "Richard Burns Rally folder not set. Run setup.sh or set RBR_DIR."
+elif [ ! -d "$RBR_DIR/rsf_launcher" ]; then
+    fail "RSF launcher not found in: $RBR_DIR
+Was the game moved? Run setup.sh again or set RBR_DIR."
+fi
 export WINEPREFIX="$RSF_WINEPREFIX"
 G="$GE_DIR/files"
 export PATH="$G/bin:$PATH"
